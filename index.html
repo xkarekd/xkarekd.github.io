@@ -1,1127 +1,521 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Performance Benchmark</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/stats.js@0.17.0/build/stats.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
-    <style>
-        :root {
-            --primary: #00f3ff;
-            --secondary: #ff00c8;
-            --background: #0a0a14;
-            --card-bg: rgba(18, 18, 32, 0.7);
-            --text: #e0e0ff;
-            --success: #00ff9d;
-            --warning: #ffaa00;
-            --danger: #ff3860;
-        }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: var(--background);
-            color: var(--text);
-            min-height: 100vh;
-            overflow-x: hidden;
-            background-image: 
-                radial-gradient(circle at 10% 20%, rgba(0, 243, 255, 0.1) 0%, transparent 20%),
-                radial-gradient(circle at 90% 80%, rgba(255, 0, 200, 0.1) 0%, transparent 20%);
-            position: relative;
-        }
-        
-        body::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: 
-                linear-gradient(125deg, transparent 0%, rgba(0, 243, 255, 0.05) 50%, transparent 100%),
-                linear-gradient(225deg, transparent 0%, rgba(255, 0, 200, 0.05) 50%, transparent 100%);
-            z-index: -1;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-        
-        header {
-            text-align: center;
-            padding: 2rem 0;
-            margin-bottom: 2rem;
-        }
-        
-        h1 {
-            font-size: 3.5rem;
-            margin-bottom: 1rem;
-            background: linear-gradient(90deg, var(--primary), var(--secondary));
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            text-shadow: 0 0 20px rgba(0, 243, 255, 0.3);
-            letter-spacing: 2px;
-        }
-        
-        .subtitle {
-            font-size: 1.2rem;
-            opacity: 0.8;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        
-        .card {
-            background: var(--card-bg);
-            border-radius: 20px;
-            padding: 2rem;
-            margin-bottom: 2rem;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 
-                0 0 20px rgba(0, 243, 255, 0.1),
-                0 0 40px rgba(255, 0, 200, 0.1);
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .card::before {
-            content: "";
-            position: absolute;
-            top: -2px;
-            left: -2px;
-            right: -2px;
-            bottom: -2px;
-            background: linear-gradient(45deg, var(--primary), var(--secondary), var(--primary));
-            z-index: -1;
-            border-radius: 22px;
-            animation: borderAnimation 3s linear infinite;
-            background-size: 400% 400%;
-        }
-        
-        @keyframes borderAnimation {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-        
-        .card-content {
-            position: relative;
-            z-index: 2;
-        }
-        
-        .btn {
-            background: linear-gradient(90deg, var(--primary), var(--secondary));
-            color: #0a0a14;
-            border: none;
-            padding: 1rem 2.5rem;
-            font-size: 1.2rem;
-            font-weight: bold;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 0 15px rgba(0, 243, 255, 0.5);
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-        
-        .btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 0 25px rgba(0, 243, 255, 0.8), 0 0 35px rgba(255, 0, 200, 0.8);
-        }
-        
-        .btn:active {
-            transform: translateY(1px);
-        }
-        
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-        
-        .progress-container {
-            height: 10px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 5px;
-            margin: 1.5rem 0;
-            overflow: hidden;
-        }
-        
-        .progress-bar {
-            height: 100%;
-            background: linear-gradient(90deg, var(--primary), var(--secondary));
-            width: 0%;
-            transition: width 0.3s ease;
-        }
-        
-        .test-info {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 1rem;
-            font-size: 0.9rem;
-            opacity: 0.8;
-        }
-        
-        .results-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem;
-            margin-top: 2rem;
-        }
-        
-        .result-card {
-            background: rgba(18, 18, 32, 0.5);
-            border-radius: 15px;
-            padding: 1.5rem;
-            text-align: center;
-            transition: transform 0.3s ease;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-        
-        .result-card:hover {
-            transform: translateY(-5px);
-            border-color: rgba(0, 243, 255, 0.3);
-        }
-        
-        .result-value {
-            font-size: 2.5rem;
-            font-weight: bold;
-            margin: 1rem 0;
-            background: linear-gradient(90deg, var(--primary), var(--secondary));
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-        
-        .chart-container {
-            height: 300px;
-            margin-top: 2rem;
-        }
-        
-        .system-info {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1rem;
-            margin-top: 1rem;
-            font-size: 0.9rem;
-        }
-        
-        .info-item {
-            background: rgba(0, 0, 0, 0.3);
-            padding: 0.5rem 1rem;
-            border-radius: 10px;
-        }
-        
-        .hidden {
-            display: none;
-        }
-        
-        .loading {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 300px;
-        }
-        
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid rgba(255, 255, 255, 0.1);
-            border-top: 5px solid var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 1.5rem;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .test-name {
-            font-size: 1.8rem;
-            margin-bottom: 1.5rem;
-            text-align: center;
-            background: linear-gradient(90deg, var(--primary), var(--secondary));
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-        
-        #webgl-container {
-            width: 100%;
-            height: 300px;
-            border-radius: 15px;
-            overflow: hidden;
-            margin: 1.5rem 0;
-        }
-        
-        .status {
-            padding: 0.5rem 1rem;
-            border-radius: 10px;
-            margin-top: 1rem;
-            text-align: center;
-        }
-        
-        .status.success {
-            background: rgba(0, 255, 157, 0.1);
-            color: var(--success);
-        }
-        
-        .status.warning {
-            background: rgba(255, 170, 0, 0.1);
-            color: var(--warning);
-        }
-        
-        .status.error {
-            background: rgba(255, 56, 96, 0.1);
-            color: var(--danger);
-        }
-        
-        footer {
-            text-align: center;
-            padding: 2rem 0;
-            opacity: 0.6;
-            font-size: 0.9rem;
-        }
-        
-        @media (max-width: 768px) {
-            h1 {
-                font-size: 2.5rem;
-            }
-            
-            .container {
-                padding: 1rem;
-            }
-            
-            .card {
-                padding: 1.5rem;
-            }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>XKAREKD – oficjalna memowa witryna w stylu Simpsonów</title>
+
+  <!-- Fonts (Simpsons-like alternates) -->
+  <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@700&family=Fredoka+One&display=swap" rel="stylesheet">
+
+  <!-- Required CSS libs -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+
+  <style>
+    :root{
+      /* Simpsons palette */
+      --simpsons-yellow: #FDD835;     /* twarz */
+      --simpsons-blue:   #87CEEB;     /* niebo */
+      --simpsons-red:    #D32F2F;
+      --shadow-blue:     #2A4D9B;
+      --cloud-white:     #FFFFFF;
+      --black-outline:   #000000;
+      --text-dark:       #222222;
+
+      /* Layout specs */
+      --header-height: 180px;
+      --logo-height: 140px;
+      --footer-height: 120px;
+
+      --tile-size: 300px;
+      --tile-gap: 30px;
+      --outline-width: 4px;
+    }
+
+    /* Base */
+    html, body {
+      height: 100%;
+      background: #fff;
+      color: var(--text-dark);
+      font-family: 'Comic Neue', 'Fredoka One', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Cartoon global outline feel */
+    .outline-strong {
+      border: var(--outline-width) solid var(--black-outline);
+      box-shadow:
+        0 0 0 2px var(--black-outline) inset,
+        4px 4px 0 0 rgba(0,0,0,0.15);
+      border-radius: 16px;
+    }
+
+    /* Header: Simpsons style sky */
+    header{
+      height: var(--header-height);
+      background: linear-gradient(180deg, var(--simpsons-blue) 0%, var(--shadow-blue) 100%);
+      position: relative;
+      overflow: hidden;
+      border-bottom: var(--outline-width) solid var(--black-outline);
+    }
+
+    /* Clouds */
+    .cloud {
+      position: absolute;
+      background: var(--cloud-white);
+      border: var(--outline-width) solid var(--black-outline);
+      border-radius: 999px;
+      box-shadow: 8px 8px 0 0 rgba(0,0,0,0.12);
+      opacity: 0.95;
+    }
+    .cloud::before, .cloud::after {
+      content: "";
+      position: absolute;
+      background: var(--cloud-white);
+      border: var(--outline-width) solid var(--black-outline);
+      border-radius: 999px;
+    }
+    .cloud::before { width: 80%; height: 60%; left: -15%; top: -20%; }
+    .cloud::after  { width: 70%; height: 70%; right: -10%; bottom: -15%; }
+
+    /* XKAREKD logo */
+    .logo-wrap {
+      height: var(--header-height);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding-top: 20px; /* wymóg: margines górny logo: 20px */
+    }
+
+    .logo {
+      height: var(--logo-height);
+      line-height: var(--logo-height);
+      transform: rotate(-3deg); /* wymóg: obrót -3° */
+      display: inline-block;
+      padding: 0 24px;
+      color: var(--simpsons-yellow);
+      background: rgba(0,0,0,0.0);
+      font-family: 'Comic Neue', 'Fredoka One', cursive;
+      font-weight: 700;
+      font-size: 96px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      -webkit-text-stroke: 4px var(--black-outline); /* gruby czarny kontur 4px */
+      text-shadow:
+        6px 6px 0 rgba(0,0,0,0.2),
+        -2px 2px 0 var(--black-outline);
+      filter: saturate(1.15);
+      user-select: none;
+    }
+
+    /* Main sections spacing */
+    main {
+      padding: 30px 12px;
+      background: #fff;
+    }
+
+    /* Section titles */
+    .section-title {
+      font-family: 'Comic Neue', 'Fredoka One', cursive;
+      font-weight: 700;
+      font-size: 38px;
+      color: var(--shadow-blue);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 18px;
+      -webkit-text-stroke: 2px var(--black-outline);
+    }
+
+    /* Memy dnia grid */
+    #memy-dnia {
+      margin-top: 10px;
+      margin-bottom: 40px;
+    }
+    .meme-grid {
+      display: grid;
+      grid-template-columns: repeat(3, var(--tile-size));
+      grid-auto-rows: var(--tile-size);
+      gap: var(--tile-gap);
+      justify-content: center;
+    }
+    @media (max-width: 992px) {
+      .meme-grid { grid-template-columns: repeat(2, var(--tile-size)); }
+    }
+    @media (max-width: 640px) {
+      .meme-grid { grid-template-columns: repeat(1, min(100%, var(--tile-size))); }
+    }
+
+    .meme-tile {
+      position: relative;
+      background: linear-gradient(180deg, #ffe27a 0%, var(--simpsons-yellow) 60%, #f7c600 100%);
+      border: var(--outline-width) solid var(--black-outline); /* wymóg: czarne obramowanie 4px */
+      border-radius: 20px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: box-shadow .15s;
+    }
+    .meme-tile:hover {
+      box-shadow: 0 10px 0 0 var(--black-outline), 0 16px 24px rgba(0,0,0,0.18);
+    }
+
+    /* Meme inner cartoon elements */
+    .meme-top-band {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 68px;
+      background: var(--shadow-blue);
+      border-bottom: var(--outline-width) solid var(--black-outline);
+    }
+    .meme-caption {
+      position: absolute;
+      top: 8px; left: 12px; right: 12px;
+      font-family: 'Comic Neue', cursive;
+      font-weight: 700;
+      font-size: 22px;
+      color: var(--cloud-white);
+      text-shadow: 2px 2px 0 var(--black-outline);
+      letter-spacing: 0.5px;
+    }
+    .meme-emoji {
+      position: absolute;
+      bottom: 12px; right: 16px;
+      font-size: 64px;
+      transform: rotate(-8deg);
+      filter: drop-shadow(3px 3px 0 var(--black-outline));
+    }
+    .meme-face {
+      position: absolute;
+      width: 140px; height: 140px;
+      left: 12px; bottom: 18px;
+      background: var(--simpsons-yellow);
+      border: var(--outline-width) solid var(--black-outline);
+      border-radius: 50%;
+      box-shadow: 8px 8px 0 rgba(0,0,0,0.12);
+    }
+    .eye {
+      position: absolute;
+      width: 36px; height: 36px;
+      background: var(--cloud-white);
+      border: var(--outline-width) solid var(--black-outline);
+      border-radius: 50%;
+      top: 38px;
+    }
+    .eye.left { left: 28px; }
+    .eye.right { left: 76px; }
+    .pupil {
+      position: absolute;
+      width: 12px; height: 12px;
+      background: var(--black-outline);
+      border-radius: 50%;
+      top: 12px; left: 12px;
+    }
+    .mouth {
+      position: absolute;
+      width: 84px; height: 42px;
+      border-bottom: var(--outline-width) solid var(--black-outline);
+      border-radius: 0 0 100px 100px;
+      left: 28px; bottom: 22px;
+      background: transparent;
+    }
+
+    /* Złote Teksty section */
+    #zlote-teksty {
+      background: var(--simpsons-yellow); /* wymóg: tło #FDD835 */
+      border-top: var(--outline-width) solid var(--black-outline);
+      border-bottom: var(--outline-width) solid var(--black-outline);
+      padding: 30px 12px 40px;
+    }
+    .bubble-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(240px, 1fr));
+      gap: 24px;
+    }
+    @media (max-width: 992px) {
+      .bubble-row { grid-template-columns: repeat(2, minmax(240px, 1fr)); }
+    }
+    @media (max-width: 640px) {
+      .bubble-row { grid-template-columns: 1fr; }
+    }
+
+    /* Comic speech bubbles */
+    .bubble {
+      position: relative;
+      background: var(--cloud-white);
+      color: var(--text-dark);
+      padding: 20px 22px;
+      border-radius: 20px;
+      border: var(--outline-width) solid var(--black-outline);
+      box-shadow: 6px 6px 0 rgba(0,0,0,0.15);
+      min-height: 130px;
+    }
+    .bubble::after {
+      content: "";
+      position: absolute;
+      bottom: -18px; left: 36px;
+      width: 0; height: 0;
+      border: 18px solid transparent;
+      border-top-color: var(--cloud-white);
+      filter: drop-shadow(0 -2px 0 var(--black-outline));
+    }
+    .bubble .who {
+      font-family: 'Comic Neue', 'Fredoka One', cursive;
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--simpsons-red);
+      -webkit-text-stroke: 1px var(--black-outline);
+      margin-bottom: 8px;
+      letter-spacing: 0.5px;
+    }
+    .bubble .line {
+      font-family: 'Comic Neue', cursive;
+      font-size: 20px;
+      line-height: 1.35;
+      letter-spacing: 0.2px;
+    }
+
+    /* Footer */
+    footer{
+      height: var(--footer-height);
+      background: var(--shadow-blue); /* wymóg: ciemny niebieski */
+      color: var(--cloud-white);      /* wymóg: białe napisy */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      border-top: var(--outline-width) solid var(--black-outline);
+      padding: 0 16px;
+    }
+    .footer-inner {
+      max-width: 1200px;
+      width: 100%;
+    }
+    .footer-text {
+      font-family: 'Comic Neue', cursive;
+      font-weight: 700;
+      font-size: 18px;
+      letter-spacing: 0.4px;
+      text-shadow: 2px 2px 0 rgba(0,0,0,0.2);
+    }
+
+    /* Utility */
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Web Performance Benchmark</h1>
-            <p class="subtitle">Zaawansowany test wydajności przeglądarki i komputera w różnych aspektach: CPU, GPU, pamięci, WebGL, WebGPU, Canvas, DOM i obliczeń matematycznych</p>
-        </header>
-        
-        <div id="start-screen" class="card">
-            <div class="card-content">
-                <h2 class="test-name">Gotowy do testu?</h2>
-                <p>Uruchom benchmark, aby ocenić wydajność Twojego urządzenia. Test potrwa około 60-90 sekund.</p>
-                <button id="start-btn" class="btn">Rozpocznij Benchmark</button>
-                
-                <div class="system-info">
-                    <div class="info-item">Przeglądarka: <span id="browser-info">-</span></div>
-                    <div class="info-item">System: <span id="os-info">-</span></div>
-                    <div class="info-item">WebGL: <span id="webgl-info">-</span></div>
-                    <div class="info-item">WebGPU: <span id="webgpu-info">-</span></div>
-                </div>
-            </div>
-        </div>
-        
-        <div id="benchmark-screen" class="card hidden">
-            <div class="card-content">
-                <h2 class="test-name" id="current-test">Rozpoczynanie testu...</h2>
-                <div class="progress-container">
-                    <div class="progress-bar" id="progress-bar"></div>
-                </div>
-                <div id="test-container">
-                    <!-- Test content will be injected here -->
-                </div>
-                <div class="test-info">
-                    <span>Test: <span id="test-counter">0</span>/6</span>
-                    <span>Czas: <span id="timer">0s</span></span>
-                </div>
-            </div>
-        </div>
-        
-        <div id="results-screen" class="card hidden">
-            <div class="card-content">
-                <h2 class="test-name">Wyniki Benchmarku</h2>
-                <p>Twoje urządzenie zostało dokładnie przetestowane. Poniżej znajdują się szczegółowe wyniki.</p>
-                
-                <div class="results-grid" id="results-grid">
-                    <!-- Results will be populated here -->
-                </div>
-                
-                <div class="chart-container">
-                    <canvas id="results-chart"></canvas>
-                </div>
-                
-                <div class="system-info">
-                    <div class="info-item">Łączny wynik: <span id="total-score">0</span> punktów</div>
-                    <div class="info-item">Średni FPS: <span id="avg-fps">0</span></div>
-                    <div class="info-item">Czas testu: <span id="total-time">0s</span></div>
-                </div>
-            </div>
-        </div>
-        
-        <footer>
-            <p>Web Performance Benchmark v1.0 | Wszystkie testy są wykonywane lokalnie w Twojej przeglądarce</p>
-        </footer>
-    </div>
 
-    <script>
-        // Globalne zmienne
-        const tests = [];
-        let currentTestIndex = 0;
-        let startTime = 0;
-        let testStartTime = 0;
-        let results = {};
-        let stats = null;
-        let totalScore = 0;
-        let avgFps = 0;
-        let totalTime = 0;
-        
-        // Inicjalizacja
-        document.addEventListener('DOMContentLoaded', () => {
-            detectEnvironment();
-            setupEventListeners();
-            initStats();
+  <!-- Decorative clouds in header sky -->
+  <header class="position-relative">
+    <div class="cloud" style="width:160px; height:80px; top:22px; left:8%;"></div>
+    <div class="cloud" style="width:220px; height:110px; top:48px; right:10%;"></div>
+    <div class="cloud" style="width:180px; height:90px; top:26px; left:68%;"></div>
+
+    <div class="logo-wrap">
+      <h1 id="logo" class="logo animate__animated">XKAREKD</h1>
+    </div>
+  </header>
+
+  <main class="container-fluid">
+
+    <!-- MEMY DNIA -->
+    <section id="memy-dnia" class="container">
+      <h2 class="section-title">Memy dnia</h2>
+
+      <div class="meme-grid">
+        <!-- Tile 1 -->
+        <article class="meme-tile outline-strong">
+          <div class="meme-top-band"></div>
+          <div class="meme-caption">„Kiedy weekend zaczyna się memem…”</div>
+          <div class="meme-face">
+            <div class="eye left"><div class="pupil"></div></div>
+            <div class="eye right"><div class="pupil"></div></div>
+            <div class="mouth"></div>
+          </div>
+          <div class="meme-emoji">🍩</div>
+        </article>
+
+        <!-- Tile 2 -->
+        <article class="meme-tile outline-strong">
+          <div class="meme-top-band" style="background: var(--simpsons-red);"></div>
+          <div class="meme-caption">„Plan: 1) mecz 2) drzemka 3) jeszcze memy”</div>
+          <div class="meme-face" style="left: 24px;">
+            <div class="eye left"><div class="pupil"></div></div>
+            <div class="eye right"><div class="pupil"></div></div>
+            <div class="mouth" style="width: 92px;"></div>
+          </div>
+          <div class="meme-emoji">📺</div>
+        </article>
+
+        <!-- Tile 3 -->
+        <article class="meme-tile outline-strong">
+          <div class="meme-top-band" style="background: var(--shadow-blue);"></div>
+          <div class="meme-caption">„Kiedy ktoś mówi ‘spokojnie’ i jest gorzej”</div>
+          <div class="meme-face" style="left: 18px; bottom: 28px;">
+            <div class="eye left"><div class="pupil"></div></div>
+            <div class="eye right"><div class="pupil"></div></div>
+            <div class="mouth" style="left: 26px;"></div>
+          </div>
+          <div class="meme-emoji">😵‍💫</div>
+        </article>
+
+        <!-- Tile 4 -->
+        <article class="meme-tile outline-strong">
+          <div class="meme-top-band" style="background: var(--simpsons-red);"></div>
+          <div class="meme-caption">„Klasyk: robię kawę, zapominam wypić”</div>
+          <div class="meme-face" style="left: 26px;">
+            <div class="eye left"><div class="pupil"></div></div>
+            <div class="eye right"><div class="pupil"></div></div>
+            <div class="mouth" style="width: 76px;"></div>
+          </div>
+          <div class="meme-emoji">☕</div>
+        </article>
+
+        <!-- Tile 5 -->
+        <article class="meme-tile outline-strong">
+          <div class="meme-top-band" style="background: var(--shadow-blue);"></div>
+          <div class="meme-caption">„Powiadomienia: 0. Spokój: 100.”</div>
+          <div class="meme-face" style="left: 20px;">
+            <div class="eye left"><div class="pupil"></div></div>
+            <div class="eye right"><div class="pupil"></div></div>
+            <div class="mouth" style="width: 90px;"></div>
+          </div>
+          <div class="meme-emoji">📵</div>
+        </article>
+
+        <!-- Tile 6 -->
+        <article class="meme-tile outline-strong">
+          <div class="meme-top-band" style="background: var(--simpsons-red);"></div>
+          <div class="meme-caption">„Życie: ‘zapisz grę?’ Ja: ‘memuj dalej’”</div>
+          <div class="meme-face" style="left: 16px;">
+            <div class="eye left"><div class="pupil"></div></div>
+            <div class="eye right"><div class="pupil"></div></div>
+            <div class="mouth" style="width: 84px;"></div>
+          </div>
+          <div class="meme-emoji">🎮</div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ZŁOTE TEKSTY -->
+    <section id="zlote-teksty" class="container-fluid">
+      <div class="container">
+        <h2 class="section-title" style="color: var(--simpsons-red);">Złote teksty</h2>
+        <div class="bubble-row">
+
+          <div class="bubble">
+            <div class="who">Homer (prawie):</div>
+            <div class="line typewriter">Jeśli mem działa — nie dotykaj. Jeśli nie działa — dotknij delikatniej.</div>
+          </div>
+
+          <div class="bubble">
+            <div class="who">Lisa (prawie):</div>
+            <div class="line typewriter">Inteligentny mem bawi dwa razy: raz ciebie, raz algorytm.</div>
+          </div>
+
+          <div class="bubble">
+            <div class="who">Bart (prawie):</div>
+            <div class="line typewriter">Zasada Barta #1: najpierw mem, potem wyjaśnienia.</div>
+          </div>
+
+          <div class="bubble">
+            <div class="who">Marge (prawie):</div>
+            <div class="line typewriter">Odpocznij. Memy nigdzie nie uciekną, chyba że internet.</div>
+          </div>
+
+          <div class="bubble">
+            <div class="who">Moe (prawie):</div>
+            <div class="line typewriter">Są żarty suche i są żarty z pustyni — podawaj z lodem.</div>
+          </div>
+
+          <div class="bubble">
+            <div class="who">Ned (prawie):</div>
+            <div class="line typewriter">Flandersowe PS: uprzejmość + mem = pogChamp.</div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-inner">
+      <p class="footer-text">Strona XKAREKD – krzysiek 2025</p>
+    </div>
+  </footer>
+
+  <!-- Required JS libs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    /* Entrance animation: logo falls from top with bounceOut (GSAP) */
+    window.addEventListener('load', function() {
+      const logo = document.getElementById('logo');
+      gsap.from(logo, {
+        y: -220,
+        duration: 1.2,
+        ease: "bounce.out"
+      });
+      // little wobble after landing
+      gsap.to(logo, {
+        rotate: -3,
+        duration: 0.6,
+        ease: "elastic.out(1, 0.6)",
+        delay: 1.0
+      });
+    });
+
+    /* Hover animations for meme tiles: squash & stretch (GSAP) */
+    const tiles = document.querySelectorAll('.meme-tile');
+    tiles.forEach(tile => {
+      tile.addEventListener('mouseenter', () => {
+        gsap.to(tile, { scale: 1.1, duration: 0.2, ease: "back.out(2)" }); /* wymóg */
+        gsap.to(tile, { transformOrigin: "50% 100%", skewY: -1.5, duration: 0.2, ease: "back.out(2)" });
+      });
+      tile.addEventListener('mouseleave', () => {
+        gsap.to(tile, { scale: 1.0, duration: 0.18, ease: "back.in(1.2)" });
+        gsap.to(tile, { skewY: 0, duration: 0.18, ease: "back.in(1.2)" });
+      });
+    });
+
+    /* Anime.js typing effect for golden lines */
+    function wrapLetters(el) {
+      const text = el.textContent;
+      el.textContent = '';
+      const frag = document.createDocumentFragment();
+      for (let i = 0; i < text.length; i++) {
+        const span = document.createElement('span');
+        span.textContent = text[i];
+        span.style.display = 'inline-block';
+        span.style.opacity = '0';
+        span.style.transform = 'translateY(8px)';
+        frag.appendChild(span);
+      }
+      el.appendChild(frag);
+      return el.querySelectorAll('span');
+    }
+
+    function animateTypewriter(selector) {
+      document.querySelectorAll(selector).forEach((line, idx) => {
+        const chars = wrapLetters(line);
+        anime({
+          targets: chars,
+          opacity: [0, 1],
+          translateY: [8, 0],
+          delay: anime.stagger(28, { start: 150 + idx * 180 }),
+          duration: 360,
+          easing: 'easeOutQuad'
         });
-        
-        // Wykrywanie środowiska
-        function detectEnvironment() {
-            // Wykrywanie przeglądarki i systemu
-            const browserInfo = getBrowserInfo();
-            document.getElementById('browser-info').textContent = browserInfo.browser;
-            document.getElementById('os-info').textContent = browserInfo.os;
-            
-            // Wykrywanie WebGL
-            const webglSupported = detectWebGL();
-            document.getElementById('webgl-info').textContent = webglSupported ? 'Dostępne' : 'Niedostępne';
-            document.getElementById('webgl-info').className = webglSupported ? 'success' : 'error';
-            
-            // Wykrywanie WebGPU
-            const webgpuSupported = detectWebGPU();
-            document.getElementById('webgpu-info').textContent = webgpuSupported ? 'Dostępne' : 'Niedostępne';
-            document.getElementById('webgpu-info').className = webgpuSupported ? 'success' : 'error';
-        }
-        
-        function getBrowserInfo() {
-            const ua = navigator.userAgent;
-            let browser = "Nieznana";
-            let os = "Nieznany";
-            
-            // Wykrywanie przeglądarki
-            if (ua.includes("Firefox")) browser = "Firefox";
-            else if (ua.includes("SamsungBrowser")) browser = "Samsung Internet";
-            else if (ua.includes("Opera") || ua.includes("OPR")) browser = "Opera";
-            else if (ua.includes("Edge")) browser = "Edge";
-            else if (ua.includes("Chrome")) browser = "Chrome";
-            else if (ua.includes("Safari")) browser = "Safari";
-            
-            // Wykrywanie systemu
-            if (ua.includes("Win")) os = "Windows";
-            else if (ua.includes("Mac")) os = "macOS";
-            else if (ua.includes("Linux")) os = "Linux";
-            else if (ua.includes("Android")) os = "Android";
-            else if (ua.includes("iOS")) os = "iOS";
-            
-            return { browser, os };
-        }
-        
-        function detectWebGL() {
-            try {
-                const canvas = document.createElement('canvas');
-                return !!(window.WebGLRenderingContext && 
-                    (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
-            } catch (e) {
-                return false;
-            }
-        }
-        
-        function detectWebGPU() {
-            return !!navigator.gpu;
-        }
-        
-        // Inicjalizacja Stats.js
-        function initStats() {
-            stats = new Stats();
-            stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
-            document.body.appendChild(stats.dom);
-            stats.dom.style.position = 'fixed';
-            stats.dom.style.top = '10px';
-            stats.dom.style.right = '10px';
-            stats.dom.style.zIndex = '10000';
-        }
-        
-        // Konfiguracja nasłuchiwania zdarzeń
-        function setupEventListeners() {
-            document.getElementById('start-btn').addEventListener('click', startBenchmark);
-        }
-        
-        // Rozpoczęcie benchmarku
-        async function startBenchmark() {
-            document.getElementById('start-screen').classList.add('hidden');
-            document.getElementById('benchmark-screen').classList.remove('hidden');
-            
-            // Zainicjalizuj testy
-            initializeTests();
-            
-            startTime = Date.now();
-            testStartTime = Date.now();
-            currentTestIndex = 0;
-            results = {};
-            totalScore = 0;
-            
-            // Uruchom pierwszy test
-            await runNextTest();
-        }
-        
-        // Inicjalizacja testów
-        function initializeTests() {
-            tests.length = 0;
-            
-            // Test 1: Obliczenia matematyczne CPU
-            tests.push({
-                name: "Obliczenia CPU",
-                description: "Test wydajności procesora poprzez mnożenie macierzy i generowanie liczb pierwszych",
-                run: runCpuTest
-            });
-            
-            // Test 2: Renderowanie WebGL
-            tests.push({
-                name: "Renderowanie WebGL",
-                description: "Test wydajności GPU poprzez renderowanie sceny 3D z setkami obiektów",
-                run: runWebGLTest
-            });
-            
-            // Test 3: Zarządzanie pamięcią
-            tests.push({
-                name: "Zarządzanie pamięcią",
-                description: "Test wydajności alokacji i dealokacji dużych struktur danych",
-                run: runMemoryTest
-            });
-            
-            // Test 4: Animacje DOM/Canvas
-            tests.push({
-                name: "Animacje DOM/Canvas",
-                description: "Test wydajności animacji elementów DOM i Canvas",
-                run: runAnimationTest
-            });
-            
-            // Test 5: Obliczenia TensorFlow.js
-            tests.push({
-                name: "Obliczenia AI (TensorFlow.js)",
-                description: "Test wydajności obliczeń AI na CPU i GPU",
-                run: runTensorFlowTest
-            });
-            
-            // Test 6: WebGPU (jeśli dostępny)
-            if (detectWebGPU()) {
-                tests.push({
-                    name: "WebGPU",
-                    description: "Test wydajności nowego interfejsu WebGPU",
-                    run: runWebGPUTest
-                });
-            }
-        }
-        
-        // Uruchomienie kolejnego testu
-        async function runNextTest() {
-            if (currentTestIndex >= tests.length) {
-                finishBenchmark();
-                return;
-            }
-            
-            const test = tests[currentTestIndex];
-            document.getElementById('current-test').textContent = test.name;
-            document.getElementById('test-counter').textContent = currentTestIndex + 1;
-            
-            // Aktualizuj pasek postępu
-            const progress = ((currentTestIndex) / tests.length) * 100;
-            document.getElementById('progress-bar').style.width = `${progress}%`;
-            
-            // Resetuj czas testu
-            testStartTime = Date.now();
-            updateTimer();
-            
-            // Uruchom test
-            try {
-                const result = await test.run();
-                results[test.name] = result;
-                totalScore += result.score;
-                
-                // Pokaż status sukcesu
-                showStatus(`Test zakończony: ${result.message}`, 'success');
-            } catch (error) {
-                results[test.name] = { score: 0, message: `Błąd: ${error.message}` };
-                showStatus(`Błąd w teście: ${error.message}`, 'error');
-            }
-            
-            currentTestIndex++;
-            setTimeout(runNextTest, 1000); // Krótkie opóźnienie między testami
-        }
-        
-        // Aktualizacja timera
-        function updateTimer() {
-            const elapsed = Math.floor((Date.now() - startTime) / 1000);
-            document.getElementById('timer').textContent = `${elapsed}s`;
-            
-            if (currentTestIndex < tests.length) {
-                requestAnimationFrame(updateTimer);
-            }
-        }
-        
-        // Pokaż status
-        function showStatus(message, type) {
-            const statusEl = document.createElement('div');
-            statusEl.className = `status ${type}`;
-            statusEl.textContent = message;
-            document.getElementById('test-container').appendChild(statusEl);
-            
-            // Usuń po 3 sekundach
-            setTimeout(() => {
-                statusEl.remove();
-            }, 3000);
-        }
-        
-        // Zakończenie benchmarku
-        function finishBenchmark() {
-            totalTime = Math.floor((Date.now() - startTime) / 1000);
-            document.getElementById('total-time').textContent = `${totalTime}s`;
-            
-            // Oblicz średni FPS
-            avgFps = stats.fps || 60;
-            document.getElementById('avg-fps').textContent = avgFps.toFixed(1);
-            
-            // Oblicz całkowity wynik
-            document.getElementById('total-score').textContent = totalScore;
-            
-            // Wyświetl wyniki
-            displayResults();
-            
-            // Przełącz na ekran wyników
-            document.getElementById('benchmark-screen').classList.add('hidden');
-            document.getElementById('results-screen').classList.remove('hidden');
-        }
-        
-        // Wyświetlanie wyników
-        function displayResults() {
-            const resultsGrid = document.getElementById('results-grid');
-            resultsGrid.innerHTML = '';
-            
-            // Dodaj wyniki poszczególnych testów
-            for (const [name, result] of Object.entries(results)) {
-                const card = document.createElement('div');
-                card.className = 'result-card';
-                card.innerHTML = `
-                    <h3>${name}</h3>
-                    <div class="result-value">${result.score}</div>
-                    <p>${result.message}</p>
-                `;
-                resultsGrid.appendChild(card);
-            }
-            
-            // Stwórz wykres
-            createResultsChart();
-        }
-        
-        // Tworzenie wykresu wyników
-        function createResultsChart() {
-            const ctx = document.getElementById('results-chart').getContext('2d');
-            
-            const labels = Object.keys(results);
-            const scores = Object.values(results).map(r => r.score);
-            
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Wynik testu',
-                        data: scores,
-                        backgroundColor: [
-                            'rgba(0, 243, 255, 0.7)',
-                            'rgba(255, 0, 200, 0.7)',
-                            'rgba(0, 255, 157, 0.7)',
-                            'rgba(255, 170, 0, 0.7)',
-                            'rgba(128, 0, 255, 0.7)',
-                            'rgba(0, 150, 255, 0.7)'
-                        ],
-                        borderColor: [
-                            'rgba(0, 243, 255, 1)',
-                            'rgba(255, 0, 200, 1)',
-                            'rgba(0, 255, 157, 1)',
-                            'rgba(255, 170, 0, 1)',
-                            'rgba(128, 0, 255, 1)',
-                            'rgba(0, 150, 255, 1)'
-                        ],
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            labels: {
-                                color: 'rgba(224, 224, 255, 0.9)'
-                            }
-                        },
-                        tooltip: {
-                            backgroundColor: 'rgba(10, 10, 20, 0.9)',
-                            titleColor: 'rgba(224, 224, 255, 1)',
-                            bodyColor: 'rgba(224, 224, 255, 0.9)',
-                            borderColor: 'rgba(0, 243, 255, 0.5)',
-                            borderWidth: 1
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: {
-                                color: 'rgba(255, 255, 255, 0.1)'
-                            },
-                            ticks: {
-                                color: 'rgba(224, 224, 255, 0.7)'
-                            }
-                        },
-                        x: {
-                            grid: {
-                                color: 'rgba(255, 255, 255, 0.1)'
-                            },
-                            ticks: {
-                                color: 'rgba(224, 224, 255, 0.7)'
-                            }
-                        }
-                    }
-                }
-            });
-        }
-        
-        // ======================
-        // MODUŁY TESTÓW
-        // ======================
-        
-        // Test 1: Obliczenia matematyczne CPU
-        async function runCpuTest() {
-            return new Promise((resolve) => {
-                const startTime = performance.now();
-                
-                // Test 1: Mnożenie macierzy
-                const size = 200;
-                const matrixA = createRandomMatrix(size);
-                const matrixB = createRandomMatrix(size);
-                const resultMatrix = multiplyMatrices(matrixA, matrixB);
-                
-                // Test 2: Generowanie liczb pierwszych
-                const primes = generatePrimes(10000);
-                
-                const endTime = performance.now();
-                const duration = endTime - startTime;
-                
-                // Oblicz wynik: im szybciej, tym lepszy wynik
-                const score = Math.max(1, Math.floor(10000 / duration));
-                const message = `Czas: ${duration.toFixed(2)}ms | Macierz: ${size}x${size} | Liczby pierwsze: ${primes.length}`;
-                
-                resolve({ score, message });
-            });
-        }
-        
-        function createRandomMatrix(size) {
-            const matrix = new Array(size);
-            for (let i = 0; i < size; i++) {
-                matrix[i] = new Array(size);
-                for (let j = 0; j < size; j++) {
-                    matrix[i][j] = Math.random();
-                }
-            }
-            return matrix;
-        }
-        
-        function multiplyMatrices(a, b) {
-            const n = a.length;
-            const result = new Array(n);
-            for (let i = 0; i < n; i++) {
-                result[i] = new Array(n);
-                for (let j = 0; j < n; j++) {
-                    let sum = 0;
-                    for (let k = 0; k < n; k++) {
-                        sum += a[i][k] * b[k][j];
-                    }
-                    result[i][j] = sum;
-                }
-            }
-            return result;
-        }
-        
-        function generatePrimes(limit) {
-            const primes = [];
-            const sieve = new Array(limit + 1).fill(true);
-            sieve[0] = sieve[1] = false;
-            
-            for (let i = 2; i <= limit; i++) {
-                if (sieve[i]) {
-                    primes.push(i);
-                    for (let j = i * i; j <= limit; j += i) {
-                        sieve[j] = false;
-                    }
-                }
-            }
-            return primes;
-        }
-        
-        // Test 2: Renderowanie WebGL
-        async function runWebGLTest() {
-            return new Promise((resolve) => {
-                const container = document.getElementById('test-container');
-                container.innerHTML = '<div id="webgl-container"></div>';
-                
-                const startTime = performance.now();
-                const containerEl = document.getElementById('webgl-container');
-                const scene = new THREE.Scene();
-                const camera = new THREE.PerspectiveCamera(75, containerEl.clientWidth / containerEl.clientHeight, 0.1, 1000);
-                const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-                renderer.setSize(containerEl.clientWidth, containerEl.clientHeight);
-                renderer.setClearColor(0x0a0a14, 0);
-                containerEl.appendChild(renderer.domElement);
-                
-                // Dodaj światło
-                const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-                scene.add(ambientLight);
-                
-                const directionalLight = new THREE.DirectionalLight(0x00f3ff, 1);
-                directionalLight.position.set(5, 5, 5);
-                scene.add(directionalLight);
-                
-                // Stwórz setki obiektów
-                const objects = [];
-                const geometry = new THREE.TorusGeometry(1, 0.4, 16, 100);
-                const material = new THREE.MeshPhongMaterial({ 
-                    color: 0x00f3ff,
-                    shininess: 100,
-                    emissive: 0x0055aa
-                });
-                
-                for (let i = 0; i < 200; i++) {
-                    const torus = new THREE.Mesh(geometry, material.clone());
-                    torus.position.set(
-                        (Math.random() - 0.5) * 20,
-                        (Math.random() - 0.5) * 20,
-                        (Math.random() - 0.5) * 20
-                    );
-                    torus.rotation.set(
-                        Math.random() * Math.PI,
-                        Math.random() * Math.PI,
-                        Math.random() * Math.PI
-                    );
-                    scene.add(torus);
-                    objects.push(torus);
-                }
-                
-                camera.position.z = 15;
-                
-                let frameCount = 0;
-                const maxFrames = 300; // Renderuj 300 klatek
-                let lastTime = 0;
-                
-                const animate = (time) => {
-                    stats.begin();
-                    
-                    if (frameCount >= maxFrames) {
-                        const endTime = performance.now();
-                        const duration = endTime - startTime;
-                        const fps = (maxFrames * 1000) / duration;
-                        
-                        // Oblicz wynik: im wyższy FPS, tym lepszy wynik
-                        const score = Math.min(1000, Math.floor(fps * 10));
-                        const message = `FPS: ${fps.toFixed(1)} | Obiekty: ${objects.length}`;
-                        
-                        // Sprzątanie
-                        containerEl.removeChild(renderer.domElement);
-                        renderer.dispose();
-                        objects.forEach(obj => {
-                            obj.geometry.dispose();
-                            obj.material.dispose();
-                        });
-                        
-                        resolve({ score, message });
-                        return;
-                    }
-                    
-                    // Animuj obiekty
-                    const delta = (time - lastTime) / 1000;
-                    lastTime = time;
-                    
-                    objects.forEach((obj, i) => {
-                        obj.rotation.x += 0.5 * delta;
-                        obj.rotation.y += 0.3 * delta;
-                        obj.position.y = Math.sin(time * 0.001 + i) * 2;
-                    });
-                    
-                    renderer.render(scene, camera);
-                    frameCount++;
-                    stats.end();
-                    
-                    requestAnimationFrame(animate);
-                };
-                
-                requestAnimationFrame(animate);
-            });
-        }
-        
-        // Test 3: Zarządzanie pamięcią
-        async function runMemoryTest() {
-            return new Promise((resolve) => {
-                const startTime = performance.now();
-                
-                // Twórz i usuwaj duże struktury danych
-                const iterations = 100;
-                const arraySize = 100000;
-                
-                for (let i = 0; i < iterations; i++) {
-                    // Twórz dużą tablicę
-                    const largeArray = new Array(arraySize);
-                    for (let j = 0; j < arraySize; j++) {
-                        largeArray[j] = {
-                            id: j,
-                            value: Math.random(),
-                            data: new Float64Array(100)
-                        };
-                    }
-                    
-                    // Symuluj pracę z danymi
-                    let sum = 0;
-                    for (let j = 0; j < arraySize; j++) {
-                        sum += largeArray[j].value;
-                    }
-                    
-                    // Usuń referencje (pozwól GC na sprzątanie)
-                    largeArray.length = 0;
-                }
-                
-                const endTime = performance.now();
-                const duration = endTime - startTime;
-                
-                // Oblicz wynik: im szybciej, tym lepszy wynik
-                const score = Math.max(1, Math.floor(5000 / duration));
-                const message = `Czas: ${duration.toFixed(2)}ms | Iteracje: ${iterations} | Rozmiar tablicy: ${arraySize}`;
-                
-                resolve({ score, message });
-            });
-        }
-        
-        // Test 4: Animacje DOM/Canvas
-        async function runAnimationTest() {
-            return new Promise((resolve) => {
-                const container = document.getElementById('test-container');
-                container.innerHTML = `
-                    <div id="animation-container" style="position: relative; width: 100%; height: 200px; overflow: hidden;"></div>
-                `;
-                
-                const animationContainer = document.getElementById('animation-container');
-                const elements = [];
-                const numElements = 50;
-                
-                // Stwórz elementy do animacji
-                for (let i = 0; i < numElements; i++) {
-                    const el = document.createElement('div');
-                    el.style.position = 'absolute';
-                    el.style.width = '30px';
-                    el.style.height = '30px';
-                    el.style.borderRadius = '50%';
-                    el.style.backgroundColor = `hsl(${i * 7}, 100%, 60%)`;
-                    el.style.left = `${Math.random() * 100}%`;
-                    el.style.top = `${Math.random() * 100}%`;
-                    animationContainer.appendChild(el);
-                    elements.push(el);
-                }
-                
-                const startTime = performance.now();
-                const duration = 5000; // 5 sekund animacji
-                
-                // Animuj elementy za pomocą GSAP
-                const animations = elements.map(el => {
-                    return gsap.to(el, {
-                        x: Math.random() * 200 - 100,
-                        y: Math.random() * 200 - 100,
-                        rotation: 360,
-                        duration: duration / 1000,
-                        repeat: -1,
-                        yoyo: true,
-                        ease: "power1.inOut"
-                    });
-                });
-                
-                // Zakończ test po upływie czasu
-                setTimeout(() => {
-                    const endTime = performance.now();
-                    const testDuration = endTime - startTime;
-                    
-                    // Zatrzymaj animacje
-                    animations.forEach(anim => anim.kill());
-                    elements.forEach(el => el.remove());
-                    
-                    // Oblicz wynik: im więcej klatek na sekundę, tym lepszy wynik
-                    const fps = stats.fps || 60;
-                    const score = Math.min(1000, Math.floor(fps * 5));
-                    const message = `Średni FPS: ${fps.toFixed(1)} | Elementy: ${numElements}`;
-                    
-                    resolve({ score, message });
-                }, duration);
-            });
-        }
-        
-        // Test 5: Obliczenia TensorFlow.js
-        async function runTensorFlowTest() {
-            return new Promise(async (resolve) => {
-                try {
-                    const startTime = performance.now();
-                    
-                    // Stwórz duże tensory
-                    const size = 1000;
-                    const a = tf.randomNormal([size, size]);
-                    const b = tf.randomNormal([size, size]);
-                    
-                    // Wykonaj mnożenie macierzy na GPU/CPU
-                    const result = tf.matMul(a, b);
-                    
-                    // Pobierz wynik (to spowoduje wykonanie obliczeń)
-                    await result.data();
-                    
-                    const endTime = performance.now();
-                    const duration = endTime - startTime;
-                    
-                    // Zwolnij pamięć
-                    a.dispose();
-                    b.dispose();
-                    result.dispose();
-                    
-                    // Oblicz wynik: im szybciej, tym lepszy wynik
-                    const score = Math.max(1, Math.floor(20000 / duration));
-                    const backend = tf.getBackend();
-                    const message = `Czas: ${duration.toFixed(2)}ms | Backend: ${backend} | Rozmiar: ${size}x${size}`;
-                    
-                    resolve({ score, message });
-                } catch (error) {
-                    resolve({ score: 0, message: `Błąd TensorFlow.js: ${error.message}` });
-                }
-            });
-        }
-        
-        // Test 6: WebGPU
-        async function runWebGPUTest() {
-            return new Promise(async (resolve) => {
-                try {
-                    const adapter = await navigator.gpu.requestAdapter();
-                    if (!adapter) {
-                        throw new Error('Brak adaptera WebGPU');
-                    }
-                    
-                    const device = await adapter.requestDevice();
-                    const startTime = performance.now();
-                    
-                    // Prosty shader obliczeniowy
-                    const shaderCode = `
-                        @group(0) @binding(0) var<storage, read_write> output: array<f32>;
-                        
-                        @compute @workgroup_size(64)
-                        fn main(@builtin(global_invocation_id) id: vec3<u32>) {
-                            let index = id.x;
-                            output[index] = f32(index) * 2.0;
-                        }
-                    `;
-                    
-                    const shaderModule = device.createShaderModule({
-                        code: shaderCode
-                    });
-                    
-                    const size = 1024;
-                    const bufferSize = size * 4; // 4 bajty na float
-                    
-                    const buffer = device.createBuffer({
-                        size: bufferSize,
-                        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
-                    });
-                    
-                    const bindGroupLayout = device.createBindGroupLayout({
-                        entries: [{
-                            binding: 0,
-                            visibility: GPUShaderStage.COMPUTE,
-                            buffer: { type: 'storage' }
-                        }]
-                    });
-                    
-                    const bindGroup = device.createBindGroup({
-                        layout: bindGroupLayout,
-                        entries: [{
-                            binding: 0,
-                            resource: { buffer: buffer }
-                        }]
-                    });
-                    
-                    const pipeline = device.createComputePipeline({
-                        layout: device.createPipelineLayout({
-                            bindGroupLayouts: [bindGroupLayout]
-                        }),
-                        compute: {
-                            module: shaderModule,
-                            entryPoint: 'main'
-                        }
-                    });
-                    
-                    const commandEncoder = device.createCommandEncoder();
-                    const passEncoder = commandEncoder.beginComputePass();
-                    passEncoder.setPipeline(pipeline);
-                    passEncoder.setBindGroup(0, bindGroup);
-                    passEncoder.dispatchWorkgroups(Math.ceil(size / 64));
-                    passEncoder.end();
-                    device.queue.submit([commandEncoder.finish()]);
-                    
-                    // Pobierz wynik
-                    const resultBuffer = device.createBuffer({
-                        size: bufferSize,
-                        usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
-                    });
-                    
-                    const copyEncoder = device.createCommandEncoder();
-                    copyEncoder.copyBufferToBuffer(buffer, 0, resultBuffer, 0, bufferSize);
-                    device.queue.submit([copyEncoder.finish()]);
-                    
-                    await resultBuffer.mapAsync(GPUMapMode.READ);
-                    const resultArray = new Float32Array(resultBuffer.getMappedRange());
-                    resultBuffer.unmap();
-                    
-                    const endTime = performance.now();
-                    const duration = endTime - startTime;
-                    
-                    // Oblicz wynik: im szybciej, tym lepszy wynik
-                    const score = Math.max(1, Math.floor(10000 / duration));
-                    const message = `Czas: ${duration.toFixed(2)}ms | Operacje: ${size}`;
-                    
-                    resolve({ score, message });
-                } catch (error) {
-                    resolve({ score: 0, message: `Błąd WebGPU: ${error.message}` });
-                }
-            });
-        }
-        
-        // Aktualizuj statystyki w każdej klatce
-        function animate() {
-            stats?.update();
-            requestAnimationFrame(animate);
-        }
-        
-        animate();
-    </script>
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      animateTypewriter('.typewriter');
+    });
+  </script>
 </body>
 </html>
